@@ -1,10 +1,7 @@
 import 'dart:async';
-
-import 'package:devtools_flutter/app/data/data_network.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-
 import '../data/stundents.dart';
-import '../data/data_not_network.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -26,11 +23,39 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage>
     with SingleTickerProviderStateMixin {
+  late List<Student> students;
+  bool isLoading = false;
+  final Dio _dio = Dio();
+  bool haserror = false;
+  String errorMessage = '';
   late TabController _tabController;
+
+  getData() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final response = await _dio
+          .get('https://run.mocky.io/v3/d8049bb3-3f2b-4283-8854-0ef5e52c11d8');
+      var data = response.data;
+      students =
+          data.map<Student>((student) => Student.fromJson(student)).toList();
+    } on DioException catch (e) {
+      haserror = true;
+      isLoading = false;
+      errorMessage = e.response?.data['message'];
+    }
+
+    setState(() {
+      isLoading = false;
+    });
+  }
 
   @override
   void initState() {
     super.initState();
+    getData();
     _tabController = TabController(length: 2, vsync: this);
   }
 
@@ -47,76 +72,57 @@ class _MyHomePageState extends State<MyHomePage>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          FutureBuilder(
-            future: getStudents(),
-            builder: (context, snapshot) {
-              if (snapshot.hasData) {
-                return ListView(
-                  children: snapshot.data!
-                      .map(
-                        (student) => ListTile(
-                          leading: CircleAvatar(
-                            backgroundImage: AssetImage('assets/avatar.webp'),
-                            maxRadius: 20,
-                            child: Text(student.lastName),
-                          ),
-                          title: Text(
-                              '${student.lastName} ${student.firstName} ${student.middleName}'),
-                          subtitle: Text('Средний балл: ${student.rating}'),
-                          trailing: IconButton(
-                            icon: Icon(student.isActivist
-                                ? Icons.star
-                                : Icons.star_border),
-                            onPressed: () =>
-                                _showConfirmationBottomSheet(context, student),
-                          ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : TabBarView(controller: _tabController, children: [
+              ListView(
+                children: students
+                    .map(
+                      (student) => ListTile(
+                        leading: CircleAvatar(
+                          backgroundImage: AssetImage('assets/avatar.webp'),
+                          maxRadius: 20,
+                          child: Text(student.lastName),
                         ),
-                      )
-                      .toList(),
-                );
-              } else {
-                return const CircularProgressIndicator();
-              }
-            },
-          ),
-          FutureBuilder(
-            future: getStudents(),
-            builder: (context, snapshot) {
-              if (snapshot.hasData) {
-                return ListView(
-                  children: snapshot.data!
-                      .where((studnet) => studnet.isActivist == true)
-                      .map(
-                        (student) => ListTile(
-                      leading: CircleAvatar(
-                        backgroundImage: AssetImage('assets/avatar.webp'),
-                        maxRadius: 20,
-                        child: Text(student.lastName),
+                        title: Text(
+                            '${student.lastName} ${student.firstName} ${student.middleName}'),
+                        subtitle: Text('Средний балл: ${student.rating}'),
+                        trailing: IconButton(
+                          icon: Icon(student.isActivist
+                              ? Icons.star
+                              : Icons.star_border),
+                          onPressed: () =>
+                              _showConfirmationBottomSheet(context, student),
+                        ),
                       ),
-                      title: Text(
-                          '${student.lastName} ${student.firstName} ${student.middleName}'),
-                      subtitle: Text('Средний балл: ${student.rating}'),
-                      trailing: IconButton(
-                        icon: Icon(student.isActivist
-                            ? Icons.star
-                            : Icons.star_border),
-                        onPressed: () =>
-                            _showConfirmationBottomSheet(context, student),
+                    )
+                    .toList(),
+              ),
+              ListView(
+                children: students
+                    .where((studnet) => studnet.isActivist == true)
+                    .map(
+                      (student) => ListTile(
+                        leading: CircleAvatar(
+                          backgroundImage: AssetImage('assets/avatar.webp'),
+                          maxRadius: 20,
+                          child: Text(student.lastName),
+                        ),
+                        title: Text(
+                            '${student.lastName} ${student.firstName} ${student.middleName}'),
+                        subtitle: Text('Средний балл: ${student.rating}'),
+                        trailing: IconButton(
+                          icon: Icon(student.isActivist
+                              ? Icons.star
+                              : Icons.star_border),
+                          onPressed: () =>
+                              _showConfirmationBottomSheet(context, student),
+                        ),
                       ),
-                    ),
-                  )
-                      .toList(),
-                );
-              } else {
-                return const CircularProgressIndicator();
-              }
-            },
-          ),
-        ],
-      ),
+                    )
+                    .toList(),
+              ),
+            ]),
     );
   }
 
